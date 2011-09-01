@@ -142,6 +142,7 @@ if (typeof Slick === "undefined") {
 
         var selectionModel;
         var selectedRows = [];
+        var customRowHeights = {};
 
         var plugins = [];
         var cellCssClasses = {};
@@ -1081,7 +1082,7 @@ if (typeof Slick === "undefined") {
                 rowCss += " " + metadata.cssClasses;
             }
 
-            stringArray.push("<div class='ui-widget-content " + rowCss + "' row='" + row + "' style='top:" + (options.rowHeight*row-offset) + "px'>");
+            stringArray.push("<div class='ui-widget-content " + rowCss + "' row='" + row + "' style='top:" + (getRowTop(row)-offset) + "px'>");
 
             var colspan;
             var rowHasColumnData = metadata && metadata.columns;
@@ -1215,13 +1216,13 @@ if (typeof Slick === "undefined") {
 
         function resizeCanvas() {
             if (options.autoHeight) {
-                viewportH = options.rowHeight * (getDataLength() + (options.enableAddRow ? 1 : 0) + (options.leaveSpaceForNewRows? numVisibleRows - 1 : 0));
+                viewportH = getRowTop(getDataLength() + (options.enableAddRow ? 1 : 0) + (options.leaveSpaceForNewRows? numVisibleRows - 1 : 0));
             }
             else {
                 viewportH = getViewportHeight();
             }
 
-            numVisibleRows = Math.ceil(viewportH / options.rowHeight);
+            numVisibleRows = Math.ceil(getRowAt(viewportH));
             viewportW = parseFloat($.css($container[0], "width", true));
             $viewport.height(viewportH);
 
@@ -1234,7 +1235,53 @@ if (typeof Slick === "undefined") {
             updateRowCount();
             render();
         }
-
+        
+        // sample row heights for testing
+        // for (var i = 0; i < 100; i ++)  customRowHeights[i * 20 + i] = 200;
+        
+        function getRowTop(row) {
+            // start with regular row height calculation
+            var result = options.rowHeight * row;
+            // now consider all custom row heights before this row
+            for (var r in customRowHeights) {
+               if (r < row) {
+                  // add the difference of custom and regular row height
+                  result += (customRowHeights[r] - options.rowHeight);
+              } else {
+                break;
+              } 
+            }
+            return result;
+        }
+        
+        // [10] default
+        // [20] custom
+        // [10] default
+        // getRowAt(10) --> 1
+        // getRowAt(28) --> 2
+        function getRowAt(y) {
+            var result = 0;
+            // TODO: consider all custom rows before this location
+            // brute force (attempt # 1)
+            for (var i =0; i < getDataLength(); i ++) {
+              y-= getRowHeight(i);
+              if (y <= 0) {
+                break;
+              } else {
+                result ++;
+              }
+            }
+            return result;
+        }
+        
+        function getRowHeight(row) {
+            return customRowHeights[row] || options.rowHeight;
+        }
+        
+        function setRowHeight(row, height) {
+            customRowHeights[row] = height; 
+        }
+        
         function resizeAndRender() {
             if (options.forceFitColumns) {
                 autosizeColumns();
@@ -1255,7 +1302,7 @@ if (typeof Slick === "undefined") {
                     removeRowFromCache(i);
                 }
             }
-            th = Math.max(options.rowHeight * newRowCount, viewportH - scrollbarDimensions.height);
+            th = Math.max(getRowTop(newRowCount), viewportH - scrollbarDimensions.height);
             if (th < maxSupportedCssHeight) {
                 // just one page
                 h = ph = th;
@@ -1299,14 +1346,14 @@ if (typeof Slick === "undefined") {
                 viewportTop = scrollTop;
 
             return {
-                top: Math.floor((scrollTop+offset)/options.rowHeight),
-                bottom: Math.ceil((scrollTop+offset+viewportH)/options.rowHeight)
+                top: Math.floor(getRowAt(scrollTop+offset)),
+                bottom: Math.ceil(getRowAt(scrollTop+offset+viewportH))
             };
         }
 
         function getRenderedRange(viewportTop) {
             var range = getVisibleRange(viewportTop);
-            var buffer = Math.round(viewportH/options.rowHeight);
+            var buffer = Math.round(getRowAt(viewportH));
             var minBuffer = 3;
 
             if (scrollDir == -1) {
@@ -1379,7 +1426,7 @@ if (typeof Slick === "undefined") {
 
         function updateRowPositions() {
             for (var row in rowsCache) {
-                rowsCache[row].style.top = (row*options.rowHeight-offset) + "px";
+                rowsCache[row].style.top = (getRowTop(row)-offset) + "px";
             }
         }
 
@@ -1701,7 +1748,7 @@ if (typeof Slick === "undefined") {
         }
 
         function getCellFromPoint(x,y) {
-            var row = Math.floor((y+offset)/options.rowHeight);
+            var row = Math.floor(getRowAt(y+offset));
             var cell = 0;
 
             var w = 0;
@@ -1740,8 +1787,8 @@ if (typeof Slick === "undefined") {
              if (!cellExists(row,cell))
                  return null;
 
-             var y1 = row * options.rowHeight - offset;
-             var y2 = y1 + options.rowHeight - 1;
+             var y1 = getRowTop(row) - offset;
+             var y2 = y1 + getRowHeight(row) - 1;
              var x1 = 0;
              for (var i=0; i<cell; i++) {
                  x1 += columns[i].width;
@@ -2022,17 +2069,17 @@ if (typeof Slick === "undefined") {
         }
 
         function scrollRowIntoView(row, doPaging) {
-            var rowAtTop = row * options.rowHeight;
-            var rowAtBottom = (row + 1) * options.rowHeight - viewportH + (viewportHasHScroll?scrollbarDimensions.height:0);
+            var rowAtTop = getRowTop(row);
+            var rowAtBottom = getRowTop(row) + getRowHeight(row) - viewportH + (viewportHasHScroll?scrollbarDimensions.height:0);
 
             // need to page down?
-            if ((row + 1) * options.rowHeight > scrollTop + viewportH + offset) {
+            if (getRowTop(row + 1) > scrollTop + viewportH + offset) {
                 scrollTo(doPaging ? rowAtTop : rowAtBottom);
                 render();
             }
 
             // or page up?
-            else if (row * options.rowHeight < scrollTop + offset) {
+            else if (getRowTop(row) < scrollTop + offset) {
                 scrollTo(doPaging ? rowAtBottom : rowAtTop);
                 render();
             }
@@ -2544,6 +2591,8 @@ if (typeof Slick === "undefined") {
             "setSelectionModel":            setSelectionModel,
             "getSelectedRows":              getSelectedRows,
             "setSelectedRows":              setSelectedRows,
+            "getRowHeight":                 getRowHeight,
+            "setRowHeight":                 setRowHeight,
 
             "render":                       render,
             "invalidate":                   invalidate,
