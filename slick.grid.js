@@ -9,7 +9,7 @@
  * SlickGrid v2.0 alpha
  *
  * NOTES:
- *     Cell/row DOM manipulations are done directly bypassing jQuery's DOM manipulation methods.
+ *     Cell/row DOM manipulations are done directly bypassing jQuerys DOM manipulation methods.
  *     This increases the speed dramatically, but can only be done safely because there are no event handlers
  *     or data associated with any cell/row DOM nodes.  Cell editors must make sure they implement .destroy()
  *     and do proper cleanup.
@@ -1086,6 +1086,7 @@ if (typeof Slick === "undefined") {
 
             var colspan;
             var rowHasColumnData = metadata && metadata.columns;
+            var cellStyle = (getRowHeight(row) === options.rowHeight) ? "" : "style='height:"+ (getRowHeight(row)-1) +"px'";
 
             for (var i=0, cols=columns.length; i<cols; i++) {
                 var m = columns[i];
@@ -1102,7 +1103,7 @@ if (typeof Slick === "undefined") {
                     }
                 }
 
-                stringArray.push("<div class='" + cellCss + "'>");
+                stringArray.push("<div " + cellStyle + " class='" + cellCss + "'>");
 
                 // if there is a corresponding row (if not, this is the Add New row or this data hasn't been loaded yet)
                 if (d) {
@@ -1254,11 +1255,6 @@ if (typeof Slick === "undefined") {
             return result;
         }
         
-        // [10] default
-        // [20] custom
-        // [10] default
-        // getRowAt(10) --> 1
-        // getRowAt(28) --> 2
         function getRowAt(y) {
             var result = 0;
             // TODO: consider all custom rows before this location
@@ -1279,7 +1275,13 @@ if (typeof Slick === "undefined") {
         }
         
         function setRowHeight(row, height) {
-            customRowHeights[row] = height; 
+            if (height == null) {
+              delete customRowHeights[row]; 
+            } else {
+              customRowHeights[row] = height; 
+            }
+            invalidateAllRows();
+            render();
         }
         
         function resizeAndRender() {
