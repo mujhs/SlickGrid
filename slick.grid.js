@@ -1243,11 +1243,18 @@ if (typeof Slick === "undefined") {
         function getRowTop(row) {
             // start with regular row height calculation
             var result = options.rowHeight * row;
+
+            var customRows = [];
+            for (customRow in customRowHeights) {
+                customRows.push(customRow);
+            }
+            customRows = customRows.sort();
+
             // now consider all custom row heights before this row
-            for (var r in customRowHeights) {
-               if (r < row) {
+            for (var r = 0; r < customRows.length; r++) {
+               if (customRows[r] < row) {
                   // add the difference of custom and regular row height
-                  result += (customRowHeights[r] - options.rowHeight);
+                  result += (customRowHeights[customRows[r]] - options.rowHeight);
               } else {
                 break;
               } 
